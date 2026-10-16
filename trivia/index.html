@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docker Survival Trivia</title>
+<style>
+  :root { --navy: #0B1D33; --panel: #13294B; --panel2: #1B3A66; --blue: #2496ED; --cyan: #38BDF8; --orange: #F59E0B;
+          --green: #22C55E; --red: #EF4444; --purple: #A78BFA; --text: #fff; --muted: #CBD5E1; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { min-height: 100vh; background: radial-gradient(circle at 20% 10%, #16345c, var(--navy) 60%); color: var(--text);
+         font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif; display: flex; align-items: center; justify-content: center; padding: 56px 16px 16px; overflow-x: hidden; }
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 20; }
+  .flash { position: fixed; inset: 0; pointer-events: none; z-index: 15; background: var(--red); opacity: 0; }
+  .flash.on { animation: flash .5s; }
+  @keyframes flash { 30% { opacity: .35; } }
+  .back { position: fixed; top: 16px; left: 20px; color: var(--muted); text-decoration: none; font-weight: 700; font-size: 14px; z-index: 5; }
+  .back:hover { color: var(--cyan); }
+  .card { width: 100%; max-width: 820px; background: rgba(19, 41, 75, .88); border-radius: 24px; padding: 30px; box-shadow: 0 30px 80px rgba(0,0,0,.45);
+          backdrop-filter: blur(8px); position: relative; z-index: 2; }
+  .card.shake { animation: shake .45s; }
+  .hidden { display: none !important; }
+  h1 { font-size: clamp(34px, 6vw, 58px); font-weight: 900; line-height: 1.05; }
+  .grad { background: linear-gradient(90deg, var(--blue), var(--cyan), var(--orange)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .muted { color: var(--muted); }
+  .center { text-align: center; }
+  .big-emoji { font-size: 84px; display: inline-block; animation: float 3s ease-in-out infinite; }
+  .big-emoji.sink { animation: sink 2.5s forwards; }
+  @keyframes float { 50% { transform: translateY(-12px) rotate(-4deg); } }
+  @keyframes sink { 0% { transform: none; } 30% { transform: rotate(20deg); } 100% { transform: translateY(18px) rotate(160deg); opacity: .3; } }
+  #emoji { height: 110px; margin-bottom: 8px; }
+  .rules { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+  .rules div { background: var(--panel2); padding: 12px 16px; border-radius: 14px; font-size: 15px; max-width: 200px; }
+  .rules b { display: block; font-size: 26px; margin-bottom: 4px; }
+  .btn { display: inline-block; border: 0; cursor: pointer; padding: 16px 38px; border-radius: 999px; font-size: 20px; font-weight: 900; text-decoration: none;
+         background: linear-gradient(90deg, var(--orange), #FCD34D); color: var(--navy); margin-top: 24px; transition: transform .15s; font-family: inherit; }
+  .btn:hover { transform: scale(1.06); }
+  .btn.ghost { background: var(--panel2); color: #fff; margin-left: 10px; }
+
+  /* Camino */
+  .road { position: relative; height: 92px; margin-bottom: 16px; }
+  .track { position: absolute; left: 22px; right: 22px; top: 52px; height: 10px; border-radius: 99px; background: var(--panel2); overflow: hidden; }
+  .track > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--blue), var(--cyan), var(--green)); transition: width .6s cubic-bezier(.5,1.6,.5,1); }
+  .steps { position: absolute; left: 22px; right: 22px; top: 47px; display: flex; justify-content: space-between; }
+  .steps i { width: 20px; height: 20px; border-radius: 50%; background: var(--panel2); border: 3px solid var(--navy); transition: background .3s; }
+  .steps i.done { background: var(--green); } .steps i.miss { background: var(--red); } .steps i.boss { width: 26px; height: 26px; margin-top: -3px; background: var(--orange); }
+  .player { position: absolute; top: 0; font-size: 40px; transform: translateX(-50%); transition: left .6s cubic-bezier(.5,1.6,.5,1); filter: drop-shadow(0 6px 8px rgba(0,0,0,.4)); }
+  .player.hit { animation: hit .5s; }
+  @keyframes hit { 25% { transform: translateX(-50%) rotate(-20deg); } 75% { transform: translateX(-50%) rotate(20deg); } }
+  .goal { position: absolute; right: 0; top: 4px; font-size: 32px; }
+
+  .top { display: flex; justify-content: space-between; align-items: center; font-weight: 800; margin-bottom: 10px; gap: 10px; flex-wrap: wrap; }
+  .pill { background: var(--panel2); padding: 6px 14px; border-radius: 999px; font-size: 15px; }
+  .pill:empty { visibility: hidden; }
+  .hearts { font-size: 26px; letter-spacing: 4px; }
+  .hearts .lost { filter: grayscale(1); opacity: .35; display: inline-block; animation: lost .6s; }
+  @keyframes lost { 40% { transform: scale(1.8); } }
+  .level { color: var(--orange); }
+  .bar { height: 8px; background: var(--panel2); border-radius: 99px; overflow: hidden; }
+  .timer > div { height: 100%; background: linear-gradient(90deg, var(--green), var(--orange), var(--red)); }
+  .q { font-size: clamp(21px, 3.2vw, 30px); font-weight: 800; margin: 20px 0; line-height: 1.25; min-height: 76px; }
+  .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .opt { display: flex; align-items: center; gap: 12px; text-align: left; border: 2px solid transparent; background: var(--panel2); color: #fff; cursor: pointer;
+         padding: 16px; border-radius: 16px; font-size: 18px; font-weight: 600; transition: transform .15s, border-color .15s, background .2s; font-family: inherit; }
+  .opt:hover:not(:disabled) { transform: translateY(-3px); border-color: var(--cyan); }
+  .opt .k { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-weight: 900; color: var(--navy); }
+  .opt:nth-child(1) .k { background: var(--cyan); } .opt:nth-child(2) .k { background: var(--orange); }
+  .opt:nth-child(3) .k { background: var(--green); } .opt:nth-child(4) .k { background: var(--purple); }
+  .opt.ok { background: var(--green); border-color: #fff; animation: pop .4s; }
+  .opt.bad { background: var(--red); animation: shake .4s; }
+  .opt:disabled { cursor: default; } .opt.dim { opacity: .45; }
+  @keyframes pop { 50% { transform: scale(1.06); } }
+  @keyframes shake { 20% { transform: translateX(-10px); } 40% { transform: translateX(10px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
+  .feedback { min-height: 28px; margin-top: 16px; font-weight: 800; font-size: 18px; text-align: center; }
+  .banner { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%) scale(.5); z-index: 25; font-size: clamp(34px, 7vw, 70px); font-weight: 900;
+            padding: 18px 38px; border-radius: 22px; background: var(--orange); color: var(--navy); opacity: 0; pointer-events: none; text-align: center; }
+  .banner.show { animation: banner 1.6s forwards; }
+  .banner small { display: block; font-size: 18px; font-weight: 700; }
+  @keyframes banner { 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } 25%, 80% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(.9); } }
+
+  .stats { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-top: 18px; }
+  .stats div { background: var(--panel2); padding: 12px 18px; border-radius: 14px; } .stats b { display: block; font-size: 24px; }
+  @media (max-width: 600px) { .opts { grid-template-columns: 1fr; } .card { padding: 20px; } .player { font-size: 32px; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<canvas id="confetti"></canvas>
+<div class="flash" id="flash"></div>
+<div class="banner" id="banner"></div>
+<a class="back" href="../">← Back to the presentation</a>
+
+<!-- Inicio -->
+<div class="card center" id="start">
+  <div class="big-emoji">🐳</div>
+  <h1>Docker <span class="grad">Survival</span></h1>
+  <p class="muted" style="margin-top:10px;font-size:18px">Help the whale reach the cloud ☁️</p>
+  <div class="rules">
+    <div><b>✅</b>Right answer = move forward</div>
+    <div><b>❤️❤️</b>Only 2 lives. 2 mistakes = game over</div>
+    <div><b>⏱️</b>12 seconds per question</div>
+    <div><b>4</b>levels: Foundations → Docker → Compose → Kubernetes</div>
+  </div>
+  <p id="best" class="muted" style="margin-top:14px"></p>
+  <button class="btn" id="go">Start ▶</button>
+</div>
+
+<!-- Juego -->
+<div class="card hidden" id="game">
+  <div class="road">
+    <div class="track"><div id="fill"></div></div>
+    <div class="steps" id="steps"></div>
+    <div class="player" id="player">🐳</div>
+    <div class="goal">☁️</div>
+  </div>
+  <div class="top">
+    <span class="pill level" id="level"></span>
+    <span class="hearts" id="hearts"></span>
+    <span class="pill" id="pts">0 pts</span>
+  </div>
+  <div class="bar timer"><div id="timer" style="width:100%"></div></div>
+  <div class="q" id="q"></div>
+  <div class="opts" id="opts"></div>
+  <div class="feedback" id="fb"></div>
+</div>
+
+<!-- Final -->
+<div class="card center hidden" id="end">
+  <div class="big-emoji" id="emoji">🏆</div>
+  <h1 id="title"></h1>
+  <p class="muted" id="sub" style="margin-top:8px;font-size:18px"></p>
+  <div class="stats">
+    <div><b id="sSteps">0</b><span class="muted">steps</span></div>
+    <div><b id="sScore">0</b><span class="muted">points</span></div>
+    <div><b id="sBest">0</b><span class="muted">high score</span></div>
+  </div>
+  <button class="btn" id="again">Try again ↻</button>
+  <a class="btn ghost" href="../">Presentation</a>
+</div>
+
+<script>
+// Niveles en orden; en cada pregunta la primera opción es la correcta (se revuelven al jugar)
+const LEVELS = [
+  { name: '🖥️ Foundations', take: 3, qs: [
+    ['Which operating system is most used on servers?', 'Linux', 'Windows', 'macOS', 'iOS'],
+    ['What is the central part of an operating system?', 'The kernel', 'The desktop', 'The browser', 'The wallpaper'],
+    ['What does the kernel help programs use?', 'Memory, CPU and devices', 'Only the internet', 'Only the keyboard', 'Social networks'],
+    ['What is the classic problem Docker solves?', '“It works on my machine”', 'Slow internet', 'Too many emails', 'Bad passwords'],
+  ] },
+  { name: '🐳 Docker', take: 4, qs: [
+    ['What does Docker run applications inside?', 'Containers', 'Folders', 'Browsers', 'Spreadsheets'],
+    ['A Docker image is…', 'A template to create containers', 'A running application', 'A photo of the app', 'A database'],
+    ['A container is…', 'A running instance of an image', 'A text file with instructions', 'A physical server', 'A Linux command'],
+    ['Which file has the instructions to build an image?', 'Dockerfile', 'package.json', 'README.md', 'index.html'],
+    ['Why are containers lighter than virtual machines?', 'They share the host kernel', 'They have no applications', 'They use more memory', 'They need their own OS'],
+    ['On Windows and macOS, Docker Desktop uses…', 'A light Linux virtual machine', 'Microsoft Paint', 'Only the cloud', 'A USB drive'],
+  ] },
+  { name: '📦 Compose', take: 2, qs: [
+    ['Which tool runs a backend and a database together with one file?', 'Docker Compose', 'Git', 'npm', 'Excel'],
+    ['With Docker Compose we start all the services with…', 'One simple command', 'One computer per service', 'A phone call', 'Restarting Windows'],
+    ['A backend usually needs which other service to save data?', 'A database', 'A printer', 'A webcam', 'A video game'],
+  ] },
+  { name: '☸️ Kubernetes', take: 3, boss: true, qs: [
+    ['In Kubernetes, a group of computers working together is a…', 'Cluster', 'Pod', 'Service', 'Image'],
+    ['In Kubernetes, one computer of the cluster is a…', 'Node', 'Deployment', 'Dockerfile', 'Volume'],
+    ['Where does our application run in Kubernetes?', 'In a Pod', 'In a Service', 'In the Dockerfile', 'In the kernel'],
+    ['What tells Kubernetes how many copies of our app we need?', 'A Deployment', 'A Service', 'A Node', 'The kernel'],
+    ['What helps users connect to our app in Kubernetes?', 'A Service', 'A Pod', 'A Node', 'An image'],
+    ['If a container stops working, Kubernetes…', 'Starts another one', 'Deletes the app forever', 'Turns off the server', 'Sends you an email'],
+  ] },
+];
+const LIVES = 2, TIME = 12;
+const $ = id => document.getElementById(id);
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+let path, i, lives, score, steps, answer, locked, t0, raf;
+
+const getBest = () => { try { return +localStorage.getItem('docker_survival_best') || 0; } catch (e) { return 0; } };
+const setBest = v => { try { localStorage.setItem('docker_survival_best', v); } catch (e) {} };
+$('best').textContent = getBest() ? `🏆 High score: ${getBest()}` : '';
+
+// Sonidos con Web Audio
+let actx;
+function beep(freqs, dur = .12, type = 'sine') {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    freqs.forEach((f, k) => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = f; o.connect(g); g.connect(actx.destination);
+      const s = actx.currentTime + k * dur;
+      g.gain.setValueAtTime(.15, s); g.gain.exponentialRampToValueAtTime(.001, s + dur);
+      o.start(s); o.stop(s + dur);
+    });
+  } catch (e) {}
+}
+
+function banner(text, sub, color) {
+  const b = $('banner');
+  b.innerHTML = text + (sub ? `<small>${sub}</small>` : '');
+  b.style.background = color || 'var(--orange)';
+  b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+}
+
+function start() {
+  // Recorrido: preguntas de cada nivel en orden, revueltas dentro del nivel
+  path = [];
+  LEVELS.forEach((lv, n) => shuffle(lv.qs.slice()).slice(0, lv.take).forEach((q, k) => path.push({ q, level: n, first: k === 0 })));
+  i = 0; lives = LIVES; score = 0; steps = 0;
+  $('steps').innerHTML = path.map((p, k) => `<i class="${k === path.length - 1 ? 'boss' : ''}"></i>`).join('');
+  $('start').classList.add('hidden'); $('end').classList.add('hidden'); $('game').classList.remove('hidden');
+  $('emoji').classList.remove('sink');
+  move();
+  show();
+}
+
+function move() {
+  const pct = steps / path.length;
+  $('fill').style.width = (pct * 100) + '%';
+  $('player').style.left = `calc(22px + (100% - 44px) * ${pct})`;
+}
+
+function renderHearts() {
+  $('hearts').innerHTML = Array.from({ length: LIVES }, (_, k) => k < lives ? '<span>❤️</span>' : '<span class="lost">💔</span>').join('');
+}
+
+function show() {
+  locked = false;
+  const { q: [text, ok, ...bad], level, first } = path[i];
+  answer = ok;
+  if (first) banner(`Level ${level + 1}`, LEVELS[level].name, level === 3 ? 'var(--purple)' : 'var(--orange)');
+  $('level').textContent = `${LEVELS[level].name} · ${i + 1}/${path.length}`;
+  renderHearts();
+  $('pts').textContent = score + ' pts';
+  $('q').textContent = (i === path.length - 1 ? '👑 FINAL: ' : '') + text;
+  $('fb').textContent = '';
+  $('opts').innerHTML = '';
+  shuffle([ok, ...bad]).forEach((o, k) => {
+    const b = document.createElement('button');
+    b.className = 'opt'; b.innerHTML = `<span class="k">${k + 1}</span><span></span>`;
+    b.lastChild.textContent = o; b.dataset.v = o;
+    b.onclick = () => pick(b);
+    $('opts').appendChild(b);
+  });
+  t0 = performance.now();
+  cancelAnimationFrame(raf);
+  const delay = first ? 1200 : 0; // espera a que pase el anuncio del nivel
+  (function tick() {
+    const left = Math.max(0, TIME - Math.max(0, performance.now() - t0 - delay) / 1000);
+    $('timer').style.width = (left / TIME * 100) + '%';
+    if (left <= 0) return pick(null);
+    if (!locked) raf = requestAnimationFrame(tick);
+  })();
+}
+
+function pick(btn) {
+  if (locked) return;
+  locked = true; cancelAnimationFrame(raf);
+  const dot = $('steps').children[i];
+  [...$('opts').children].forEach(b => { b.disabled = true; if (b.dataset.v === answer) b.classList.add('ok'); else if (b !== btn) b.classList.add('dim'); });
+
+  if (btn && btn.dataset.v === answer) {
+    const left = Math.max(0, TIME - (performance.now() - t0) / 1000);
+    const pts = Math.round(500 + 500 * Math.min(1, left / TIME)) * (path[i].level + 1);
+    score += pts; steps++;
+    dot.classList.add('done'); move();
+    $('fb').innerHTML = `<span style="color:var(--green)">Correct! +${pts} · moving forward 🐳</span>`;
+    beep([660, 880]);
+  } else {
+    if (btn) btn.classList.add('bad');
+    lives--;
+    dot.classList.add('miss');
+    renderHearts();
+    $('player').classList.remove('hit'); void $('player').offsetWidth; $('player').classList.add('hit');
+    $('game').classList.remove('shake'); void $('game').offsetWidth; $('game').classList.add('shake');
+    $('flash').classList.remove('on'); void $('flash').offsetWidth; $('flash').classList.add('on');
+    beep([220, 140], .18, 'square');
+    $('fb').innerHTML = `<span style="color:var(--red)">${btn ? 'Wrong!' : "⏰ Time's up!"} ${lives ? '1 life left 💔' : ''}</span> <span class="muted">Answer: ${answer}</span>`;
+    if (lives === 1) banner('⚠️ Last life!', 'One more mistake and you sink', 'var(--red)');
+  }
+  $('pts').textContent = score + ' pts';
+
+  setTimeout(() => {
+    if (lives <= 0) return end(false);
+    i++;
+    i < path.length ? show() : end(true);
+  }, 1700);
+}
+
+function end(won) {
+  $('game').classList.add('hidden'); $('end').classList.remove('hidden');
+  if (won) {
+    score += lives * 1000; // bono por vidas que sobraron
+    $('emoji').textContent = lives === LIVES ? '👑' : '🏆';
+    $('title').innerHTML = 'You reached the <span class="grad">cloud</span>!';
+    $('sub').textContent = lives === LIVES ? 'Perfect run! Docker Captain 🐳' : 'You made it with your last life. Respect!';
+    beep([523, 659, 784, 1046], .14);
+    confetti(240);
+  } else {
+    $('emoji').textContent = '🐳'; $('emoji').classList.add('sink');
+    $('title').innerHTML = 'Game over 💀';
+    $('sub').textContent = `The whale sank at ${LEVELS[path[i].level].name}. Study a little more and try again!`;
+    beep([392, 330, 262, 196], .22, 'triangle');
+  }
+  if (score > getBest()) setBest(score);
+  $('sSteps').textContent = `${steps}/${path.length}`;
+  $('sBest').textContent = getBest();
+  const t = performance.now();
+  (function count() { const p = Math.min(1, (performance.now() - t) / 1200); $('sScore').textContent = Math.round(score * p); if (p < 1) requestAnimationFrame(count); })();
+}
+
+function confetti(n) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cv = $('confetti'), ctx = cv.getContext('2d');
+  cv.width = innerWidth; cv.height = innerHeight;
+  const colors = ['#2496ED', '#38BDF8', '#F59E0B', '#22C55E', '#A78BFA', '#FFFFFF'];
+  const ps = Array.from({ length: n }, () => ({ x: Math.random() * innerWidth, y: -20 - Math.random() * 200, vx: (Math.random() - .5) * 4, vy: 2 + Math.random() * 4,
+    s: 6 + Math.random() * 8, c: colors[Math.floor(Math.random() * 6)], r: Math.random() * 6, vr: (Math.random() - .5) * .3 }));
+  let f = 0;
+  (function frame() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ps.forEach(p => { p.x += p.vx; p.y += p.vy; p.r += p.vr; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore(); });
+    if (++f < 260) requestAnimationFrame(frame); else ctx.clearRect(0, 0, cv.width, cv.height);
+  })();
+}
+
+$('go').onclick = start;
+$('again').onclick = start;
+addEventListener('keydown', e => {
+  if (!$('game').classList.contains('hidden')) {
+    const k = '1234'.indexOf(e.key) >= 0 ? +e.key : 'abcd'.indexOf(e.key.toLowerCase()) + 1;
+    if (k >= 1 && k <= 4) $('opts').children[k - 1]?.click();
+  } else if (e.key === 'Enter') start();
+});
+</script>
+</body>
+</html>
