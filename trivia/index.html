@@ -44,9 +44,32 @@
   .steps { position: absolute; left: 22px; right: 22px; top: 47px; display: flex; justify-content: space-between; }
   .steps i { width: 20px; height: 20px; border-radius: 50%; background: var(--panel2); border: 3px solid var(--navy); transition: background .3s; }
   .steps i.done { background: var(--green); } .steps i.miss { background: var(--red); } .steps i.boss { width: 26px; height: 26px; margin-top: -3px; background: var(--orange); }
-  .player { position: absolute; top: 0; font-size: 40px; transform: translateX(-50%); transition: left .6s cubic-bezier(.5,1.6,.5,1); filter: drop-shadow(0 6px 8px rgba(0,0,0,.4)); }
-  .player.hit { animation: hit .5s; }
-  @keyframes hit { 25% { transform: translateX(-50%) rotate(-20deg); } 75% { transform: translateX(-50%) rotate(20deg); } }
+  .road { height: 120px; }
+  .track { top: 80px; left: 70px; } .steps { top: 75px; left: 70px; }
+  .water { position: absolute; left: 0; right: 0; top: 96px; height: 24px; overflow: hidden; opacity: .5; }
+  .water svg { width: 200%; height: 100%; animation: waves 6s linear infinite; }
+  @keyframes waves { to { transform: translateX(-50%); } }
+  /* La ballena: rebota en espera y salta al avanzar */
+  .player { position: absolute; top: 26px; font-size: 44px; transform: translateX(-50%); transition: left .7s ease-in-out; filter: drop-shadow(0 6px 8px rgba(0,0,0,.4)); z-index: 2; }
+  .player span { display: inline-block; animation: idle 1.2s ease-in-out infinite; }
+  .player.jump span { animation: jump .7s ease-in-out; }
+  .player.hit span { animation: hit .5s; }
+  .player.eaten span { animation: eaten .5s forwards; }
+  @keyframes idle { 50% { transform: translateY(-6px) scaleY(1.05); } }
+  @keyframes jump { 0% { transform: scale(1.1, .85); } 15% { transform: translateY(-10px) scale(.9, 1.15); } 50% { transform: translateY(-48px) rotate(-18deg); }
+                    85% { transform: translateY(0) scale(1.15, .85); } 100% { transform: none; } }
+  @keyframes hit { 25% { transform: rotate(-25deg) translateX(8px); } 75% { transform: rotate(25deg); } }
+  @keyframes eaten { to { transform: scale(0) rotate(360deg); opacity: 0; } }
+  .splash { position: absolute; top: 60px; font-size: 22px; transform: translateX(-50%); animation: splash .6s forwards; pointer-events: none; }
+  @keyframes splash { from { opacity: 1; } to { transform: translate(-50%, -26px) scale(1.6); opacity: 0; } }
+  /* El tiburón que persigue */
+  .shark { position: absolute; top: 30px; font-size: 42px; transform: translateX(-50%); transition: left .9s cubic-bezier(.3,1.4,.6,1); z-index: 1; }
+  .shark span { display: inline-block; transform: scaleX(-1); animation: swim 1s ease-in-out infinite; }
+  .shark.attack span { animation: attack .5s ease-in-out; }
+  @keyframes swim { 50% { transform: scaleX(-1) translateY(5px) rotate(4deg); } }
+  @keyframes attack { 50% { transform: scaleX(-1.3) scaleY(1.3) translateX(-10px); } }
+  .chomp { position: absolute; top: 14px; font-size: 54px; transform: translateX(-50%); animation: chomp .9s forwards; z-index: 3; }
+  @keyframes chomp { 0% { transform: translateX(-50%) scale(0); } 30% { transform: translateX(-50%) scale(1.4); } 100% { transform: translateX(-50%) scale(1); opacity: 0; } }
   .goal { position: absolute; right: 0; top: 4px; font-size: 32px; }
 
   .top { display: flex; justify-content: space-between; align-items: center; font-weight: 800; margin-bottom: 10px; gap: 10px; flex-wrap: wrap; }
@@ -97,8 +120,8 @@
   <p class="muted" style="margin-top:10px;font-size:18px">Help the whale reach the cloud ☁️</p>
   <div class="rules">
     <div><b>✅</b>Right answer = move forward</div>
-    <div><b>❤️❤️</b>Only 2 lives. 2 mistakes = game over</div>
-    <div><b>⏱️</b>12 seconds per question</div>
+    <div><b>❤️❤️❤️</b>3 lives. Every mistake, the shark gets closer</div>
+    <div><b>🦈</b>3 mistakes = the shark eats the whale</div>
     <div><b>4</b>levels: Foundations → Docker → Compose → Kubernetes</div>
   </div>
   <p id="best" class="muted" style="margin-top:14px"></p>
@@ -110,7 +133,9 @@
   <div class="road">
     <div class="track"><div id="fill"></div></div>
     <div class="steps" id="steps"></div>
-    <div class="player" id="player">🐳</div>
+    <div class="water"><svg viewBox="0 0 800 24" preserveAspectRatio="none"><path d="M0 12 Q25 0 50 12 T100 12 T150 12 T200 12 T250 12 T300 12 T350 12 T400 12 T450 12 T500 12 T550 12 T600 12 T650 12 T700 12 T750 12 T800 12 V24 H0Z" fill="#2496ED"/></svg></div>
+    <div class="shark" id="shark"><span>🦈</span></div>
+    <div class="player" id="player"><span>🐳</span></div>
     <div class="goal">☁️</div>
   </div>
   <div class="top">
@@ -118,7 +143,6 @@
     <span class="hearts" id="hearts"></span>
     <span class="pill" id="pts">0 pts</span>
   </div>
-  <div class="bar timer"><div id="timer" style="width:100%"></div></div>
   <div class="q" id="q"></div>
   <div class="opts" id="opts"></div>
   <div class="feedback" id="fb"></div>
@@ -169,7 +193,8 @@ const LEVELS = [
     ['If a container stops working, Kubernetes…', 'Starts another one', 'Deletes the app forever', 'Turns off the server', 'Sends you an email'],
   ] },
 ];
-const LIVES = 2, TIME = 12;
+const LIVES = 3;
+const SHARK_GAP = { 3: 170, 2: 105, 1: 55, 0: 0 }; // qué tan atrás viene el tiburón según las vidas
 const $ = id => document.getElementById(id);
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
@@ -209,14 +234,27 @@ function start() {
   $('steps').innerHTML = path.map((p, k) => `<i class="${k === path.length - 1 ? 'boss' : ''}"></i>`).join('');
   $('start').classList.add('hidden'); $('end').classList.add('hidden'); $('game').classList.remove('hidden');
   $('emoji').classList.remove('sink');
+  $('player').className = 'player';
   move();
   show();
 }
 
+// Posiciones en px dentro del camino (pista de 70px a ancho-22px)
 function move() {
+  if (!path) return;
   const pct = steps / path.length;
+  const W = document.querySelector('.road').clientWidth;
+  const x = 70 + (W - 92) * pct;
   $('fill').style.width = (pct * 100) + '%';
-  $('player').style.left = `calc(22px + (100% - 44px) * ${pct})`;
+  $('player').style.left = x + 'px';
+  $('shark').style.left = Math.max(18, x - SHARK_GAP[lives]) + 'px';
+}
+addEventListener('resize', move);
+// Reinicia una animación CSS
+function replay(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+function addFx(cls, text, left) {
+  const d = document.createElement('div'); d.className = cls; d.textContent = text; d.style.left = left;
+  document.querySelector('.road').appendChild(d); setTimeout(() => d.remove(), 1000);
 }
 
 function renderHearts() {
@@ -241,41 +279,40 @@ function show() {
     b.onclick = () => pick(b);
     $('opts').appendChild(b);
   });
-  t0 = performance.now();
-  cancelAnimationFrame(raf);
-  const delay = first ? 1200 : 0; // espera a que pase el anuncio del nivel
-  (function tick() {
-    const left = Math.max(0, TIME - Math.max(0, performance.now() - t0 - delay) / 1000);
-    $('timer').style.width = (left / TIME * 100) + '%';
-    if (left <= 0) return pick(null);
-    if (!locked) raf = requestAnimationFrame(tick);
-  })();
 }
 
 function pick(btn) {
   if (locked) return;
-  locked = true; cancelAnimationFrame(raf);
+  locked = true;
   const dot = $('steps').children[i];
   [...$('opts').children].forEach(b => { b.disabled = true; if (b.dataset.v === answer) b.classList.add('ok'); else if (b !== btn) b.classList.add('dim'); });
 
-  if (btn && btn.dataset.v === answer) {
-    const left = Math.max(0, TIME - (performance.now() - t0) / 1000);
-    const pts = Math.round(500 + 500 * Math.min(1, left / TIME)) * (path[i].level + 1);
+  if (btn.dataset.v === answer) {
+    const pts = 1000 * (path[i].level + 1);
     score += pts; steps++;
-    dot.classList.add('done'); move();
-    $('fb').innerHTML = `<span style="color:var(--green)">Correct! +${pts} · moving forward 🐳</span>`;
-    beep([660, 880]);
+    dot.classList.add('done');
+    const from = $('player').style.left;
+    replay($('player'), 'jump'); move();
+    addFx('splash', '💦', from);
+    $('fb').innerHTML = `<span style="color:var(--green)">Correct! +${pts} · jump! 🐳</span>`;
+    beep([523, 784, 1046], .09);
   } else {
-    if (btn) btn.classList.add('bad');
+    btn.classList.add('bad');
     lives--;
     dot.classList.add('miss');
     renderHearts();
-    $('player').classList.remove('hit'); void $('player').offsetWidth; $('player').classList.add('hit');
-    $('game').classList.remove('shake'); void $('game').offsetWidth; $('game').classList.add('shake');
-    $('flash').classList.remove('on'); void $('flash').offsetWidth; $('flash').classList.add('on');
-    beep([220, 140], .18, 'square');
-    $('fb').innerHTML = `<span style="color:var(--red)">${btn ? 'Wrong!' : "⏰ Time's up!"} ${lives ? '1 life left 💔' : ''}</span> <span class="muted">Answer: ${answer}</span>`;
-    if (lives === 1) banner('⚠️ Last life!', 'One more mistake and you sink', 'var(--red)');
+    replay($('game'), 'shake'); replay($('flash'), 'on');
+    replay($('shark'), 'attack'); move(); // el tiburón se acerca
+    if (lives > 0) {
+      replay($('player'), 'hit');
+      beep([220, 140], .18, 'square');
+      $('fb').innerHTML = `<span style="color:var(--red)">Wrong! The shark is getting closer 🦈 · ${lives} ${lives === 1 ? 'life' : 'lives'} left</span><br><span class="muted">Answer: ${answer}</span>`;
+      if (lives === 1) banner('⚠️ Last life!', 'The shark is right behind you', 'var(--red)');
+    } else {
+      // ¡Ñam! El tiburón alcanza a la ballena
+      $('fb').innerHTML = `<span style="color:var(--red)">CHOMP! 🦈</span> <span class="muted">Answer: ${answer}</span>`;
+      setTimeout(() => { addFx('chomp', '💥', $('player').style.left); $('player').classList.add('eaten'); beep([180, 120, 70], .2, 'sawtooth'); }, 700);
+    }
   }
   $('pts').textContent = score + ' pts';
 
@@ -283,7 +320,7 @@ function pick(btn) {
     if (lives <= 0) return end(false);
     i++;
     i < path.length ? show() : end(true);
-  }, 1700);
+  }, lives <= 0 ? 2300 : 1700);
 }
 
 function end(won) {
@@ -292,13 +329,14 @@ function end(won) {
     score += lives * 1000; // bono por vidas que sobraron
     $('emoji').textContent = lives === LIVES ? '👑' : '🏆';
     $('title').innerHTML = 'You reached the <span class="grad">cloud</span>!';
-    $('sub').textContent = lives === LIVES ? 'Perfect run! Docker Captain 🐳' : 'You made it with your last life. Respect!';
+    $('sub').textContent = lives === LIVES ? 'Perfect run! The shark never got close. Docker Captain 🐳'
+      : lives === 1 ? 'The shark was biting your tail… but you made it! 😅' : 'You escaped the shark. Nice!';
     beep([523, 659, 784, 1046], .14);
     confetti(240);
   } else {
-    $('emoji').textContent = '🐳'; $('emoji').classList.add('sink');
-    $('title').innerHTML = 'Game over 💀';
-    $('sub').textContent = `The whale sank at ${LEVELS[path[i].level].name}. Study a little more and try again!`;
+    $('emoji').textContent = '🦈';
+    $('title').innerHTML = 'Eaten by the shark! 💀';
+    $('sub').textContent = `The whale got caught at ${LEVELS[path[i].level].name}. Study a little more and try again!`;
     beep([392, 330, 262, 196], .22, 'triangle');
   }
   if (score > getBest()) setBest(score);
